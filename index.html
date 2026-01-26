@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Cribbage</title>
+
+<link rel="manifest" href="manifest.json">
+
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1b5e20">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+  :root {
+    --bg-color: #1b5e20; 
+    --card-width: 70px;
+    --card-height: 100px;
+    --card-radius: 6px;
+    --card-overlap: -45px;
+  }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: var(--bg-color);
+    color: white;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    height: 100dvh; 
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* --- HEADER --- */
+  header {
+    width: 100%;
+    height: 50px;
+    padding: 0 15px;
+    background: rgba(0,0,0,0.3);
+    display: flex;
+    justify-content: space-between; 
+    align-items: center;
+    box-sizing: border-box;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 1rem;
+    z-index: 10;
+    flex-shrink: 0;
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .game-title { 
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-weight: bold; 
+      color: #ffca28; 
+      font-size: 1.1rem; 
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      text-transform: uppercase;
+      cursor: pointer; 
+  }
+  
+  .score-text { 
+      font-weight: bold; 
+      color: white;
+      display: flex;
+      gap: 5px;
+      font-size: 0.9rem;
+  }
+  .dealer-indicator {
+      font-size: 0.7rem;
+      background: #ffca28;
+      color: black;
+      padding: 1px 4px;
+      border-radius: 4px;
+      margin-left: 5px;
+      display: none;
+  }
+
+  /* --- GAME AREA --- */
+  #game-area {
+    flex: 1;
+    width: 100%;
+    max-width: 900px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; 
+    padding: 20px 0 20px 0; 
+    box-sizing: border-box;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* --- HANDS --- */
+  .hand-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    z-index: 5; 
+  }
+  
+  .hand {
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    height: 110px;
+    position: relative;
+    padding: 0 10px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: margin 0.3s;
+  }
+
+  /* --- CARD VISUALS --- */
+  .card {
+    width: var(--card-width);
+    min-width: var(--card-width);
+    height: var(--card-height);
+    background: white;
+    border-radius: var(--card-radius);
+    color: black;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    position: relative;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: transform 0.2s, top 0.3s; 
+    z-index: 1;
+    flex-shrink: 0;
+  }
+  .card.selected { transform: translateY(-15px); border: 2px solid #ffca28; }
+  
+  .hand .card { margin-right: var(--card-overlap); }
+  .hand .card:last-child { margin-right: 0; }
+  
+  .card.red { color: #d32f2f; }
+  .card.black { color: #212121; }
+  
+  .card .corner { position: absolute; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; }
+  .card .top-left { top: 4px; left: 4px; }
+  .card .bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
+  .card .suit-center { font-size: 2rem; }
+
+  /* Blue Backs */
+  .card-back { background: #0d47a1 !important; border: 2px solid #fff; }
+  .card-back * { display: none; }
+  
+  /* --- TABLE CENTER (Pegging Area) --- */
+  .table-center {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    z-index: 4;
+    position: relative;
+  }
+
+  .deck-row {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 15px;
+    align-items: center;
+  }
+  
+  .stack {
+    width: var(--card-width);
+    height: var(--card-height);
+    border-radius: var(--card-radius);
+    position: relative;
+    border: 2px dashed rgba(255,255,255,0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.1);
+  }
+  .stack-label { position: absolute; bottom: -22px; font-size: 0.75rem; color: #ccc; font-weight: bold; white-space: nowrap;}
+
+  .pegging-info {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      border: 2px solid #ffca28;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #ffca28;
+      font-weight: bold;
+      margin: 0 10px;
+  }
+  .peg-val { font-size: 1.4rem; line-height: 1; }
+  .peg-lbl { font-size: 0.6rem; text-transform: uppercase; }
+
+  .played-cards-area {
+      display: flex;
+      justify-content: center;
+      height: 100px;
+      width: 100%;
+      perspective: 800px;
+  }
+  .played-card {
+      margin-left: -40px;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+  }
+  .played-card:first-child { margin-left: 0; }
+  
+  /* --- CONTROLS --- */
+  #controls {
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  button {
+    padding: 10px 30px;
+    font-size: 1rem; 
+    background: #ffca28;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    box-shadow: 0 4px #c79100;
+    font-weight: bold;
+    color: #333;
+    transition: transform 0.1s;
+    display: none; 
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 2px #c79100; }
+  
+  /* Secondary Button Style */
+  button.secondary { 
+    background: #fff; 
+    color: #333; 
+    box-shadow: 0 4px #999; 
+    display: inline-block;
+  }
+  button.secondary:active { box-shadow: 0 2px #999; }
+
+  /* --- TOAST & OVERLAYS --- */
+  #toast {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffca28;
+    padding: 15px 30px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    pointer-events: none;
+    display: none;
+    z-index: 200;
+    text-align: center;
+    border: 1px solid #ffca28;
+  }
+
+  .overlay-bg {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); 
+    display: none;
+    z-index: 999;
+    justify-content: center;
+    align-items: center;
+  }
+  .status-box {
+    background: rgba(51, 51, 51, 0.98);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 12px;
+    border: 2px solid #ffca28;
+    max-width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  }
+  h2 { margin-top: 0; color: #ffca28; font-size: 1.4rem; }
+  .score-breakdown { font-size: 0.9rem; text-align: left; margin: 15px 0; line-height: 1.4; color: #eee; }
+  .total-line { border-top: 1px solid #666; margin-top: 8px; padding-top: 5px; font-weight: bold; text-align: right; color: #ffca28; }
+  
+  /* --- INFO MODAL STYLES (Easter Egg) --- */
+  #info-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); 
+    display: none;
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+  }
+  .info-text {
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #eee;
+      margin: 15px 0;
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 5px;
+  }
+  
+  /* UPDATED: Buttons forced to one row */
+  .modal-actions {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      flex-wrap: nowrap; /* Forces one line */
+      width: 100%;
+      align-items: center;
+  }
+  /* Style for buttons inside modal */
+  .modal-actions button {
+      padding: 10px 5px; /* Taller tap target, narrow width */
+      font-size: 0.7rem; /* Smaller text to fit */
+      white-space: nowrap; 
+      flex: 1; 
+      min-width: 0; 
+  }
+  /* Specific styling for the coffee button */
+  .coffee-btn {
+      background: #FFDD00; 
+      color: #000; 
+      width: 100%; 
+      display: inline-block;
+  }
+
+  /* --- ANIMATIONS --- */
+  @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .pop-in { animation: popIn 0.3s ease-out; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="score-text">CPU: <span id="c-score">0</span> <span id="c-dealer" class="dealer-indicator">DEALER</span></div>
+  <div class="game-title" onclick="triggerEasterEgg()">CRIBBAGE</div>
+  <div class="score-text">YOU: <span id="p-score">0</span> <span id="p-dealer" class="dealer-indicator">DEALER</span></div>
+</header>
+
+<div id="toast"></div>
+
+<div id="overlay" class="overlay-bg">
+  <div class="status-box pop-in">
+    <h2 id="overlay-title">Round Over</h2>
+    <div id="overlay-content"></div>
+    <br>
+    <button id="overlay-btn" style="display:inline-block" onclick="nextPhase()">Continue</button>
+  </div>
+</div>
+
+<div id="info-overlay">
+    <div class="status-box pop-in" style="min-width: 310px; padding: 20px 10px;">
+        <h2>CRIBBAGE</h2>
+        <div style="color: #ffca28; margin-bottom: 5px; font-weight: bold;">Version 3.0</div>
+        <div class="info-text">
+            <div style="margin-bottom:10px; text-align:center">
+                <a href="https://bicyclecards.com/how-to-play/cribbage/" target="_blank" style="color:#ffca28; text-decoration:underline;">Read Cribbage Rules</a>
+            </div>
+            <div id="stats-content" style="text-align:center; font-weight:bold;">
+                </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button onclick="closeInfoModal(); initGame();" style="display:inline-block;">New Game</button>
+            
+            <a href="https://buymeacoffee.com/classmarks" target="_blank" style="text-decoration:none; flex:1; display:flex;">
+                <button class="coffee-btn">☕ Buy Me A Coffee</button>
+            </a>
+            
+            <button class="secondary" onclick="closeInfoModal()" style="display:inline-block;">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="game-area">
+  
+  <div class="hand-container">
+    <div class="hand" id="cpu-hand"></div>
+  </div>
+
+  <div class="table-center">
+    
+    <div class="deck-row">
+      <div class="stack" id="deck-pile">
+        <div class="card card-back" id="cut-card"></div> <div class="stack-label">Cut</div>
+      </div>
+
+      <div class="pegging-info">
+        <div class="peg-val" id="current-count">0</div>
+        <div class="peg-lbl">Count</div>
+      </div>
+
+      <div class="stack" id="crib-pile">
+        <div class="card card-back"></div>
+        <div class="stack-label">Crib</div>
+      </div>
+    </div>
+
+    <div class="played-cards-area" id="play-area"></div>
+
+  </div>
+
+  <div class="hand-container">
+    <div id="controls">
+      <button id="action-btn" onclick="handleAction()">Discard</button>
+    </div>
+    <div class="hand" id="player-hand"></div>
+  </div>
+
+</div>
+
+<script>
+/* --- CONSTANTS & DATA --- */
+const SUITS = ['♠', '♥', '♣', '♦'];
+const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const CARDS_VAL = {'A':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':10, 'Q':10, 'K':10};
+const TARGET_SCORE = 121;
+
+/* --- STATE --- */
+let deck = [];
+let pHand = [], cHand = [], crib = [], cutCard = null;
+let pScore = 0, cScore = 0;
+let dealer = 'cpu'; 
+let phase = 'deal'; 
+let turn = 'player';
+let currentCount = 0;
+let playedCards = []; 
+let pGo = false, cGo = false;
+let pShowHand = [], cShowHand = [];
+
+/* --- STATS STORAGE --- */
+let stats = { played: 0, won: 0 };
+try {
+    const saved = localStorage.getItem('cribbageStats');
+    if(saved) stats = JSON.parse(saved);
+} catch(e) { console.log(e); }
+
+/* --- DOM --- */
+const elPHand = document.getElementById('player-hand');
+const elCHand = document.getElementById('cpu-hand');
+const elPlayArea = document.getElementById('play-area');
+const elCrib = document.getElementById('crib-pile');
+const elCut = document.getElementById('cut-card');
+const elCount = document.getElementById('current-count');
+const btnAction = document.getElementById('action-btn');
+const elToast = document.getElementById('toast');
+const elOverlay = document.getElementById('overlay');
+const elInfoOverlay = document.getElementById('info-overlay'); 
+const elPScore = document.getElementById('p-score');
+const elCScore = document.getElementById('c-score');
+const elPInd = document.getElementById('p-dealer');
+const elCInd = document.getElementById('c-dealer');
+
+/* --- EASTER EGG FUNCTIONS --- */
+function triggerEasterEgg() {
+    let pct = 0;
+    if(stats.played > 0) pct = Math.round((stats.won / stats.played) * 100);
+    
+    const txt = `Games won/played = ${stats.won}/${stats.played} = ${pct}%`;
+    document.getElementById('stats-content').innerText = txt;
+    
+    elInfoOverlay.style.display = 'flex';
+}
+
+function closeInfoModal() {
+    elInfoOverlay.style.display = 'none';
+}
+
+/* --- INIT --- */
+function initGame() {
+    elOverlay.style.display = 'none';
+    document.getElementById('overlay-btn').innerText = "Continue"; 
+    
+    pScore = 0; cScore = 0;
+    dealer = Math.random() > 0.5 ? 'player' : 'cpu';
+    updateScoreUI();
+    startRound();
+}
+
+function startRound() {
+    phase = 'deal';
+    pHand = []; cHand = []; crib = []; playedCards = [];
+    currentCount = 0;
+    pGo = false; cGo = false;
+    deck = createDeck();
+    
+    // Switch dealer
+    dealer = (dealer === 'player') ? 'cpu' : 'player';
+    updateScoreUI();
+    
+    // Deal 6 cards each
+    for(let i=0; i<6; i++) {
+        pHand.push(deck.pop());
+        cHand.push(deck.pop());
+    }
+    
+    // Sort hands
+    sortHand(pHand);
+    sortHand(cHand);
+
+    render();
+    
+    // Move to Discard Phase
+    phase = 'discard';
+    btnAction.innerText = "Send to Crib (0/2)";
+    btnAction.style.display = 'block';
+    showToast("Select 2 cards for Crib");
+}
+
+function createDeck() {
+    let d = [];
+    for(let s of SUITS) {
+        for(let v of VALUES) {
+            d.push({
+                val: v, suit: s, 
+                rank: VALUES.indexOf(v), 
+                valPoints: CARDS_VAL[v],
+                color: (s==='♥'||s==='♦')?'red':'black',
+                id: Math.random().toString(36).substr(2,9),
+                selected: false
+            });
+        }
+    }
+    // Shuffle
+    for(let i=d.length-1; i>0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [d[i], d[j]] = [d[j], d[i]];
+    }
+    return d;
+}
+
+function sortHand(h) { h.sort((a,b) => a.rank - b.rank); }
+
+/* --- INTERACTION --- */
+function onCardClick(idx) {
+    if(phase === 'discard') {
+        let c = pHand[idx];
+        c.selected = !c.selected;
+        let count = pHand.filter(x=>x.selected).length;
+        btnAction.innerText = `Send to Crib (${count}/2)`;
+        if(count === 2) btnAction.style.background = "#ffca28"; 
+        else btnAction.style.background = "#fff"; 
+        render();
+    }
+    else if(phase === 'pegging' && turn === 'player') {
+        playCard(idx);
+    }
+}
+
+function handleAction() {
+    if(phase === 'discard') {
+        let selected = pHand.filter(c => c.selected);
+        if(selected.length !== 2) return;
+        
+        let keep = pHand.filter(c => !c.selected);
+        selected.forEach(c => { c.selected = false; crib.push(c); });
+        pHand = keep;
+        
+        // CPU logic
+        cHand.sort((a,b) => a.rank - b.rank);
+        let cDiscards = [cHand.shift(), cHand.shift()];
+        crib.push(...cDiscards);
+        
+        // SAVE FOR SHOW
+        pShowHand = [...pHand];
+        cShowHand = [...cHand];
+        
+        phase = 'cut';
+        btnAction.style.display = 'none';
+        render();
+        setTimeout(doCut, 600);
+    }
+}
+
+/* --- GAME LOGIC --- */
+function doCut() {
+    cutCard = deck.pop();
+    elCut.className = `card ${cutCard.color}`;
+    elCut.innerHTML = createCardHTML(cutCard);
+    
+    // Check for "His Heels" (Jack Cut)
+    if(cutCard.val === 'J') {
+        showToast("His Heels! Dealer +2");
+        addPoints(dealer, 2);
+    }
+    
+    setTimeout(() => {
+        phase = 'pegging';
+        turn = (dealer === 'player') ? 'cpu' : 'player';
+        currentCount = 0;
+        pGo = false; cGo = false;
+        playedCards = []; 
+        render();
+        
+        if(turn === 'player') {
+             checkPlayerCanMove();
+        } else {
+             setTimeout(cpuPeg, 1000);
+        }
+    }, 1500);
+}
+
+// === PEGGING ===
+function checkPlayerCanMove() {
+    let canPlay = pHand.some(c => (currentCount + c.valPoints) <= 31);
+    if(!canPlay) {
+        pGo = true;
+        if(cGo) {
+            endPegRun();
+        } else {
+            showToast("GO");
+            turn = 'cpu';
+            setTimeout(cpuPeg, 1000);
+        }
+    } else {
+        showToast("Your Turn");
+    }
+}
+
+function playCard(idx) {
+    let c = pHand[idx];
+    if((currentCount + c.valPoints) > 31) {
+        showToast("Too high!", true);
+        return;
+    }
+    
+    pHand.splice(idx, 1);
+    placePegCard(c, 'player');
+}
+
+function cpuPeg() {
+    let valid = cHand.filter(c => (currentCount + c.valPoints) <= 31);
+    
+    if(valid.length === 0) {
+        cGo = true;
+        showToast("CPU says GO");
+        if(pGo) {
+            endPegRun();
+        } else {
+            turn = 'player';
+            addPoints('player', 1);
+            checkPlayerCanMove();
+        }
+        return;
+    }
+    
+    let best = valid[0];
+    for(let c of valid) {
+        let score = calcPegPoints([...playedCards, c]);
+        if(score > 0) best = c;
+    }
+    
+    let idx = cHand.indexOf(best);
+    cHand.splice(idx, 1);
+    
+    placePegCard(best, 'cpu');
+}
+
+function placePegCard(card, who) {
+    playedCards.push(card);
+    currentCount += card.valPoints;
+    render();
+    
+    let pts = calcPegPoints(playedCards);
+    if(pts > 0) {
+        showToast(`+${pts} Points`);
+        addPoints(who, pts);
+    }
+    
+    if(currentCount === 31) {
+        showToast("31 for 2!");
+        addPoints(who, 2); 
+        playedCards = [];
+        currentCount = 0;
+        pGo = false; cGo = false;
+    }
+    
+    if(pHand.length === 0 && cHand.length === 0) {
+        if(currentCount !== 0) {
+             addPoints(who, 1);
+             showToast("Last Card for 1");
+        }
+        setTimeout(startShow, 1000);
+        return;
+    }
+    
+    turn = (who === 'player') ? 'cpu' : 'player';
+    
+    if(turn === 'player') checkPlayerCanMove();
+    else setTimeout(cpuPeg, 1000);
+}
+
+function endPegRun() {
+    currentCount = 0;
+    playedCards = [];
+    pGo = false; cGo = false;
+    render();
+    if(turn === 'player') checkPlayerCanMove();
+    else setTimeout(cpuPeg, 1000);
+}
+
+/* --- SCORING LOGIC --- */
+function calcPegPoints(cards) {
+    if(cards.length < 2) return 0;
+    let pts = 0;
+    let len = cards.length;
+    let last = cards[len-1];
+    
+    // 15
+    let runningTotal = 0;
+    cards.forEach(c => runningTotal += c.valPoints);
+    if(runningTotal === 15) pts += 2;
+    
+    // Pairs
+    let k = 1;
+    while(len - 1 - k >= 0) {
+        if(cards[len-1-k].val === last.val) k++;
+        else break;
+    }
+    if(k===2) pts += 2;
+    if(k===3) pts += 6;
+    if(k===4) pts += 12;
+    
+    // Runs
+    let maxRun = 0;
+    for(let r=3; r<=len; r++) {
+        let subset = cards.slice(len-r, len);
+        let sorted = [...subset].sort((a,b)=>a.rank - b.rank);
+        let isRun = true;
+        for(let i=0; i<sorted.length-1; i++) {
+            if(sorted[i+1].rank !== sorted[i].rank + 1) isRun = false;
+        }
+        if(isRun) maxRun = r;
+    }
+    if(maxRun > 0) pts += maxRun;
+    
+    return pts;
+}
+
+// === THE SHOW ===
+let showQueue = [];
+
+function startShow() {
+    phase = 'show';
+    elPlayArea.innerHTML = ''; 
+    elCount.innerHTML = ''; 
+    
+    let pone = (dealer === 'player') ? 'cpu' : 'player';
+    let dealr = dealer;
+    
+    showQueue = [
+        { who: pone, hand: (pone==='player'?pShowHand:cShowHand), name: (pone==='player'?"Your Hand":"CPU Hand"), isCrib: false },
+        { who: dealr, hand: (dealr==='player'?pShowHand:cShowHand), name: (dealr==='player'?"Your Hand":"CPU Hand"), isCrib: false },
+        { who: dealr, hand: crib, name: "The Crib", isCrib: true }
+    ];
+    
+    processShowQueue();
+}
+
+function processShowQueue() {
+    if(showQueue.length === 0) {
+        showOverlay("Round Complete", `Scores:<br>You: ${pScore}<br>CPU: ${cScore}`, true);
+        document.getElementById('overlay-btn').onclick = nextPhase;
+        return;
+    }
+    
+    let item = showQueue.shift();
+    
+    let score = scoreHand(item.hand, cutCard, item.isCrib);
+    addPoints(item.who, score.total);
+    
+    let html = `<div style="display:flex; justify-content:center; gap:5px; margin-bottom:10px">`;
+    [...item.hand, cutCard].forEach(c => {
+         html += `<div class="card ${c.color}" style="width:50px; height:75px; font-size:0.8rem">
+            <div class="corner top-left">${c.val}${c.suit}</div>
+            <div class="suit-center" style="font-size:1.2rem">${c.suit}</div>
+         </div>`
+    });
+    html += `</div>`;
+    html += `<div class="score-breakdown">
+        <strong>${item.name}</strong><br>
+        15s: ${score.fifteens}<br>
+        Pairs: ${score.pairs}<br>
+        Runs: ${score.runs}<br>
+        Flush: ${score.flush}<br>
+        Nobs: ${score.nobs}<br>
+        <div class="total-line">Total: ${score.total}</div>
+    </div>`;
+    
+    showOverlay(item.name, html, true);
+    
+    document.getElementById('overlay-btn').onclick = function() {
+        elOverlay.style.display = 'none';
+        if(pScore >= 121 || cScore >= 121) gameOver();
+        else processShowQueue();
+    };
+}
+
+function scoreHand(hand, cut, isCrib) {
+    let cards = [...hand, cut];
+    let details = { fifteens:0, pairs:0, runs:0, flush:0, nobs:0, total:0 };
+    
+    // 15s
+    for(let i=1; i<32; i++) {
+        let sub = [];
+        let sum = 0;
+        for(let j=0; j<5; j++) {
+            if((i >> j) & 1) {
+                sub.push(cards[j]);
+                sum += cards[j].valPoints;
+            }
+        }
+        if(sum === 15) details.fifteens += 2;
+    }
+    
+    // Pairs
+    for(let i=0; i<cards.length; i++) {
+        for(let j=i+1; j<cards.length; j++) {
+            if(cards[i].val === cards[j].val) details.pairs += 2;
+        }
+    }
+    
+    // Runs 
+    let ranks = cards.map(c=>c.rank).sort((a,b)=>a-b);
+    let uniqueRanks = [...new Set(ranks)].sort((a,b)=>a-b);
+    
+    let seqs = [];
+    let currentSeq = [uniqueRanks[0]];
+    for(let i=1; i<uniqueRanks.length; i++) {
+        if(uniqueRanks[i] === uniqueRanks[i-1]+1) currentSeq.push(uniqueRanks[i]);
+        else {
+            if(currentSeq.length >= 3) seqs.push(currentSeq);
+            currentSeq = [uniqueRanks[i]];
+        }
+    }
+    if(currentSeq.length >= 3) seqs.push(currentSeq);
+    
+    seqs.forEach(seq => {
+        let mult = 1;
+        seq.forEach(r => {
+            mult *= ranks.filter(x=>x===r).length;
+        });
+        details.runs += (seq.length * mult);
+    });
+
+    // Flush
+    let suit = hand[0].suit;
+    let handFlush = hand.every(c => c.suit === suit);
+    if(handFlush) {
+        if(cut.suit === suit) details.flush = 5;
+        else if(!isCrib) details.flush = 4;
+    } else if(isCrib) {
+        let allSuit = cards[0].suit;
+        if(cards.every(c => c.suit === allSuit)) details.flush = 5;
+    }
+    
+    // Nobs
+    hand.forEach(c => {
+        if(c.val === 'J' && c.suit === cut.suit) details.nobs += 1;
+    });
+
+    details.total = details.fifteens + details.pairs + details.runs + details.flush + details.nobs;
+    return details;
+}
+
+function addPoints(who, amt) {
+    if(who === 'player') pScore += amt;
+    else cScore += amt;
+    updateScoreUI();
+    if(pScore >= 121 || cScore >= 121) gameOver();
+}
+
+function updateScoreUI() {
+    elPScore.innerText = pScore;
+    elCScore.innerText = cScore;
+    elPInd.style.display = dealer === 'player' ? 'inline-block' : 'none';
+    elCInd.style.display = dealer === 'cpu' ? 'inline-block' : 'none';
+}
+
+function gameOver() {
+    let win = pScore >= 121;
+    
+    // Update Stats
+    stats.played++;
+    if(win) stats.won++;
+    localStorage.setItem('cribbageStats', JSON.stringify(stats));
+    
+    showOverlay("GAME OVER", win ? "You Win!" : "CPU Wins!", true);
+    document.getElementById('overlay-btn').innerText = "New Game";
+    document.getElementById('overlay-btn').onclick = initGame;
+}
+
+function nextPhase() {
+    elOverlay.style.display = 'none';
+    startRound();
+}
+
+/* --- RENDERER --- */
+function render() {
+    elPHand.innerHTML = '';
+    pHand.forEach((c, i) => {
+        let div = createCardDiv(c);
+        div.onclick = () => onCardClick(i);
+        if(c.selected) div.classList.add('selected');
+        elPHand.appendChild(div);
+    });
+
+    elCHand.innerHTML = '';
+    cHand.forEach(c => {
+        let div = document.createElement('div');
+        div.className = 'card card-back';
+        elCHand.appendChild(div);
+    });
+
+    elPlayArea.innerHTML = '';
+    playedCards.forEach(c => {
+        let div = createCardDiv(c);
+        div.className = `card ${c.color} played-card`;
+        elPlayArea.appendChild(div);
+    });
+
+    elCrib.innerHTML = `<div class="card card-back"></div><div class="stack-label">Crib</div>`;
+    if(crib.length === 0) elCrib.style.opacity = 0.5;
+    else elCrib.style.opacity = 1;
+
+    elCount.innerText = currentCount;
+}
+
+function createCardHTML(card) {
+    return `<div class="corner top-left"><span>${card.val}</span><span>${card.suit}</span></div>
+            <div class="suit-center">${card.suit}</div>
+            <div class="corner bottom-right"><span>${card.val}</span><span>${card.suit}</span></div>`;
+}
+
+function createCardDiv(card) {
+    let div = document.createElement('div');
+    div.className = `card ${card.color}`;
+    div.innerHTML = createCardHTML(card);
+    return div;
+}
+
+function showToast(msg, isErr=false) {
+    elToast.innerText = msg;
+    elToast.style.color = isErr ? '#ff5252' : '#ffca28';
+    elToast.style.borderColor = isErr ? '#ff5252' : '#ffca28';
+    elToast.style.display = 'block';
+    elToast.classList.add('pop-in');
+    setTimeout(() => { elToast.style.display = 'none'; }, 1500);
+}
+
+function showOverlay(title, content, isHtml) {
+    document.getElementById('overlay-title').innerText = title;
+    if(isHtml) document.getElementById('overlay-content').innerHTML = content;
+    else document.getElementById('overlay-content').innerText = content;
+    elOverlay.style.display = 'flex';
+}
+
+/* --- SERVICE WORKER REGISTRATION --- */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('SW Registered', reg))
+            .catch(err => console.log('SW Error', err));
+    });
+}
+
+initGame();
+</script>
+</body>
+</html>
