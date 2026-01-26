@@ -2,7 +2,7 @@ Somewhat easy to play, offline version of two player Cribbage that plays well on
 
 No adds and no special permission requirements! 
 
-To install on your device, go to https://girumsam174.github.io/cribbage/ then go to your browser's menu and click add to homescreen.
+To install on your device, go to https://girumsam174.github.io/Cribbage/ then go to your browser's menu and click add to homescreen.
 
 Click on the title to see your game stats.
 
