@@ -1,8 +1,8 @@
-Somewhat easy to play, offline version of two player Cribbage that plays well on your smartphone in portrait mode. It's just you versus your CPU.
+Two player Cribbage that plays well on your smartphone in portrait mode. It's just you versus your CPU.
 
 No adds and no special permission requirements! 
 
-To install on your device, go to https://girumsam174.github.io/Cribbage/ then go to your browser's menu and click add to homescreen.
+To play offline and install on your device, go to https://girumsam174.github.io/Cribbage/ then go to your browser's menu and click add to homescreen.
 
 Click on the title to see your game stats.
 
